@@ -914,78 +914,52 @@
 
         // Automatically fetch the CSV via PapaParse (Assumes local server running or same-origin)
         Papa.parse('제주자원.csv', {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            encoding: 'EUC-KR', // Assuming local excel file is EUC-KR
-            complete: async function (results) {
-                const data = results.data;
-                if (data.length === 0) {
-                    alert('자료.csv 데이터가 비어있습니다.');
-                    loadingOverlay.style.display = 'none';
-                    return;
-                }
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    encoding: 'EUC-KR', // CSV 파일 저장 인코딩에 맞게 설정 (보통 엑셀은 EUC-KR)
+    complete: function (results) {
+        const data = results.data;
+        if (data.length === 0) {
+            alert('데이터가 비어있습니다.');
+            loadingOverlay.style.display = 'none';
+            return;
+        }
 
-                powerPlantsData = [];
-                let errCount = 0;
+        powerPlantsData = [];
+        
+        data.forEach((row, idx) => {
+            const parsed = extractRowData(row);
+            
+            // CSV에 추가한 '위도', '경도' 컬럼 값을 우선적으로 가져옵니다.
+            let cLat = parseFloat(row['위도']);
+            let cLng = parseFloat(row['경도']);
 
-                const percentText = loadingOverlay.querySelector('p');
-
-                for (let idx = 0; idx < data.length; idx++) {
-                    const row = data[idx];
-                    const parsed = extractRowData(row);
-
-                    if (!parsed.name && !parsed.address) {
-                        errCount++;
-                        continue;
-                    }
-
-                    parsed.capParsed = formatCapacity(parsed.capacityRaw);
-
-                    let cLat = parseFloat(parsed.latCol);
-                    let cLng = parseFloat(parsed.lngCol);
-
-                    if (!isNaN(cLat) && !isNaN(cLng) && cLat > 0 && cLng > 0) {
-                        parsed.lat = cLat;
-                        parsed.lng = cLng;
-                    } else {
-                        const coords = await geocodeAddress(parsed.address || parsed.name);
-                        if (coords) {
-                            parsed.lat = coords.lat;
-                            parsed.lng = coords.lng;
-                        } else {
-                            parsed.lat = 36.5 + (Math.random() * 0.1);
-                            parsed.lng = 127.5 + (Math.random() * 0.1);
-                        }
-                        await new Promise(r => setTimeout(r, 100)); // Naver API는 빠르므로 짧은 딜레이만 적용
-                    }
-
-                    parsed._idx = idx;
-                    powerPlantsData.push(parsed);
-
-                    if (idx % 10 === 0 && percentText) {
-                        percentText.textContent = `위치 데이터 실시간 변환 중... (${idx}/${data.length})`;
-                    }
-                }
-
-                if (powerPlantsData.length === 0) {
-                    alert('오류: 유효한 발전소 데이터를 찾을 수 없습니다.');
-                    loadingOverlay.style.display = 'none';
-                    return;
-                }
-
-                loadingOverlay.style.display = 'none';
-                document.getElementById('searchContainer').style.display = 'block';
-
-                renderMapMarkers();
-                generateChartData();
-            },
-            error: function (err) {
-                alert('자료.csv 파일을 자동으로 불러오는 데 실패했습니다. 파일이 같은 폴더에 없거나 로컬 파일 보안 정책(CORS)에 막혔습니다.\n에러: ' + err.message);
-                loadingOverlay.style.display = 'none';
+            // 좌표 값이 유효한 경우에만 데이터에 추가
+            if (!isNaN(cLat) && !isNaN(cLng)) {
+                parsed.lat = cLat;
+                parsed.lng = cLng;
+                parsed.capParsed = formatCapacity(parsed.capacityRaw);
+                parsed._idx = idx;
+                powerPlantsData.push(parsed);
             }
         });
 
+        if (powerPlantsData.length === 0) {
+            alert('오류: CSV 파일에서 유효한 위도/경도 좌표를 찾을 수 없습니다.');
+        }
+
+        loadingOverlay.style.display = 'none';
+        document.getElementById('searchContainer').style.display = 'block';
+
+        renderMapMarkers();
+        generateChartData();
+    },
+    error: function (err) {
+        alert('CSV 파일을 불러오는 데 실패했습니다: ' + err.message);
+        loadingOverlay.style.display = 'none';
+    }
+});
         // Toggle Chart Panel
         const chartBtn = document.getElementById('chartToggleBtn');
         const chartPanel = document.getElementById('chartPanel');
