@@ -932,8 +932,8 @@
             const parsed = extractRowData(row);
             
             // CSV에 추가한 '위도', '경도' 컬럼 값을 우선적으로 가져옵니다.
-            let cLat = parseFloat(row['위도']);
-            let cLng = parseFloat(row['경도']);
+            let cLat = parseFloat(row['Latitude']);
+            let cLng = parseFloat(row['Longitude']);
 
             // 좌표 값이 유효한 경우에만 데이터에 추가
             if (!isNaN(cLat) && !isNaN(cLng)) {
